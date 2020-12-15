@@ -10,6 +10,13 @@ This is an unofficial implementation of [Propagate Yourself: Exploring Pixel-Lev
 ## Training
 ### TODO
 - LARS optimizer
+- Downstream
+  - Object Detection
+  - Semantic Segmentation
+  - Instance Segmentation
+  - Semi-Supervised Object Detection
+  - Linear Evaluation
+
 
 ## Evaluation
 **TODO**
