@@ -149,7 +149,7 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
 def main():
     set_seed()
     args = get_arguments()
-    args.lr = 1. * args.batch_size / 256
+    args.lr = args.lr or 1. * args.batch_size / 256
     args, initial_epoch = search_same(args)
     if initial_epoch == -1:
         # training was already finished!

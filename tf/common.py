@@ -30,7 +30,7 @@ def get_arguments():
     parser.add_argument("--steps",          type=int,       default=0)
     parser.add_argument("--epochs",         type=int,       default=100)
 
-    parser.add_argument("--lr",             type=float,     default=1.) # not used
+    parser.add_argument("--lr",             type=float,     default=None)
     parser.add_argument("--momentum",       type=float,     default=.99)
     parser.add_argument("--threshold",      type=float,     default=0.7)
     parser.add_argument("--gamma",          type=float,     default=2.)

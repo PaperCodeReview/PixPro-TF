@@ -87,8 +87,6 @@ class PixPro(tf.keras.Model):
             x = Conv2D(channel, 1, use_bias=False, 
                     kernel_regularizer=l2(weight_decay), 
                     name='proj_conv2')(x)
-            x = norm_layer(self.norm, name='proj_bn2')(x)
-            x = Activation('relu', name='proj_relu2')(x)
 
             arch = Model(base_encoder.input, x, name=name)
             return arch
@@ -140,8 +138,6 @@ class PixPro(tf.keras.Model):
             transform = Conv2D(channel, 1, use_bias=False,
                                kernel_regularizer=l2(weight_decay),
                                name='ppm_conv2')(transform)
-            transform = norm_layer(self.norm, name='ppm_bn2')(transform)
-            transform = Activation('relu', name='ppm_relu2')(transform)
         else:
             raise ValueError('num_layer must be lower than 3.')
 
@@ -205,7 +201,8 @@ class PixPro(tf.keras.Model):
             cos_ij = self.pixpro_loss(y_i, x_j, view1_mask, 'cos_ij')
             cos_ji = self.pixpro_loss(y_j, x_i, view2_mask, 'cos_ji')
 
-            loss = 2-cos_ij-cos_ji
+            loss = -cos_ij-cos_ji
+            loss += sum(self.encoder_propagation.losses)
 
         trainable_vars = self.encoder_propagation.trainable_variables
         grads = tape.gradient(loss, trainable_vars)
