@@ -60,7 +60,7 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
             loss=tf.keras.losses.cosine_similarity,
             momentum=args.momentum,
             num_workers=num_workers,
-            run_eagerly=True)
+            run_eagerly=None)
 
 
     ##########################
@@ -169,8 +169,7 @@ def main():
     # Strategy
     ##########################
     if len(args.gpus.split(',')) > 1:
-        strategy = tf.distribute.experimental.CentralStorageStrategy()
-        # strategy = tf.distribute.MirroredStrategy()
+        strategy = tf.distribute.MirroredStrategy()
     else:
         strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
 

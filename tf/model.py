@@ -129,6 +129,8 @@ class PixPro(tf.keras.Model):
             transform = Conv2D(channel, 1, use_bias=False,
                                kernel_regularizer=l2(weight_decay),
                                name='ppm_conv1')(inputs)
+            transform = norm_layer(self.norm, name='ppm_bn1')(transform)
+            transform = Activation('relu', name='ppm_relu1')(transform)
         elif num_layers == 2:
             transform = Conv2D(channel, 1, use_bias=False,
                                kernel_regularizer=l2(weight_decay),
@@ -138,6 +140,8 @@ class PixPro(tf.keras.Model):
             transform = Conv2D(channel, 1, use_bias=False,
                                kernel_regularizer=l2(weight_decay),
                                name='ppm_conv2')(transform)
+            transform = norm_layer(self.norm, name='ppm_bn2')(transform)
+            transform = Activation('relu', name='ppm_relu2')(transform)
         else:
             raise ValueError('num_layer must be lower than 3.')
 
@@ -168,6 +172,24 @@ class PixPro(tf.keras.Model):
         self.momentum = momentum
         self.num_workers = num_workers
 
+    def pixpro_loss(self, y, x, mask, name=None):
+        _, h, w, c = x.shape
+        cos = self.loss(
+            tf.reshape(y, (-1,h*w,c))[:,:,None,:],
+            tf.reshape(tf.stop_gradient(x), (-1,h*w,c))[:,None,:,:], axis=-1)
+        cos *= mask
+        cos_sum = tf.reduce_sum(cos, axis=(1,2))
+        mask_sum = tf.reduce_sum(mask, axis=(1,2))
+        mask_cnt = tf.math.count_nonzero(mask_sum, dtype=tf.float32)
+        mask_sum = tf.where(mask_sum > 0, mask_sum, 1)
+        cos = cos_sum / mask_sum
+        if self.num_workers > 1:
+            replica_context = tf.distribute.get_replica_context()
+            mask_cnt = replica_context.all_reduce(tf.distribute.ReduceOp.SUM, mask_cnt)
+        
+        cos = tf.reduce_sum(cos) / mask_cnt
+        return cos
+
     def train_step(self, data):
         view1 = data['view1']
         view2 = data['view2']
@@ -176,35 +198,14 @@ class PixPro(tf.keras.Model):
 
         x_i = self.encoder_momentum(view1, training=False)
         x_j = self.encoder_momentum(view2, training=False)
-
-        b, h, w, c = x_i.shape        
         with tf.GradientTape() as tape:
             y_i = self.encoder_propagation(view1)
             y_j = self.encoder_propagation(view2)
 
-            cos_ij = self.loss(
-                tf.reshape(y_i, (b,h*w,c))[:,:,None,:],
-                tf.reshape(x_j, (b,h*w,c))[:,None,:,:], axis=-1)
-            cos_ij *= view1_mask
-            cos_ij_sum = tf.reduce_sum(cos_ij, axis=(1,2))
-            view1_mask_sum = tf.reduce_sum(view1_mask, axis=(1,2))
-            view_mask_cnt = tf.math.count_nonzero(view1_mask_sum, dtype=tf.float32)
-            view1_mask_sum = tf.where(view1_mask_sum > 0, view1_mask_sum, 1)
-            cos_ij = cos_ij_sum / view1_mask_sum
-            cos_ij = tf.reduce_sum(cos_ij) / view_mask_cnt
+            cos_ij = self.pixpro_loss(y_i, x_j, view1_mask, 'cos_ij')
+            cos_ji = self.pixpro_loss(y_j, x_i, view2_mask, 'cos_ji')
 
-            cos_ji = self.loss(
-                tf.reshape(y_j, (b,h*w,c))[:,:,None,:],
-                tf.reshape(x_i, (b,h*w,c))[:,None,:,:], axis=-1)
-            cos_ji *= view2_mask
-            cos_ji_sum = tf.reduce_sum(cos_ji, axis=(1,2))
-            view2_mask_sum = tf.reduce_sum(view2_mask, axis=(1,2))
-            view2_mask_cnt = tf.math.count_nonzero(view2_mask_sum, dtype=tf.float32)
-            view2_mask_sum = tf.where(view2_mask_sum > 0, view2_mask_sum, 1)
-            cos_ji = cos_ji_sum / view2_mask_sum
-            cos_ji = tf.reduce_sum(cos_ji) / view2_mask_cnt
-
-            loss = - cos_ij - cos_ji
+            loss = 2-cos_ij-cos_ji
 
         trainable_vars = self.encoder_propagation.trainable_variables
         grads = tape.gradient(loss, trainable_vars)
