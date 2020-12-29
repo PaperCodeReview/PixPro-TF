@@ -1,6 +1,7 @@
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 from common import set_seed
 from common import get_logger
@@ -31,7 +32,7 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
     ##########################
     # Model & Generator
     ##########################
-    train_generator = DataLoader(args, 'train', trainset, args.batch_size, num_workers).dataloader
+    train_generator = DataLoader(args, 'train', trainset, args.batch_size).dataloader
     with strategy.scope():
         model = PixPro(
             logger,
@@ -44,6 +45,13 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
             num_layers=args.num_layers,
             weight_decay=args.weight_decay,
             snapshot=args.snapshot)
+        
+        if args.summary:
+            tf.keras.utils.plot_model(model, './model.png', show_shapes=True)
+            tf.keras.utils.plot_model(model.encoder_regular, './encoder_regular.png', show_shapes=True)
+            tf.keras.utils.plot_model(model.encoder_propagation, './encoder_propagation.png', show_shapes=True)
+            tf.keras.utils.plot_model(model.encoder_momentum, './encoder_momentum.png', show_shapes=True)
+            return
 
         lr_scheduler = OptionalLearningRateSchedule(
             lr=args.lr,
@@ -57,10 +65,9 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
         model.compile(
             # TODO : apply LARS
             optimizer=tf.keras.optimizers.SGD(lr_scheduler, momentum=.9),
-            loss=tf.keras.losses.cosine_similarity,
-            momentum=args.momentum,
+            batch_size=args.batch_size,
             num_workers=num_workers,
-            run_eagerly=None)
+            run_eagerly=True)
 
 
     ##########################

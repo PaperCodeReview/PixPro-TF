@@ -128,21 +128,22 @@ class PixProModelCheckpoint(ModelCheckpoint):
 
 
 class MomentumUpdate(Callback):
-    def __init__(self, momentum, total_epoch):
+    def __init__(self, logger, momentum, total_epoch):
         super(MomentumUpdate, self).__init__()
-        self.momentum = momentum
+        self.logger = logger
+        self.init_momentum = momentum
         self.total_epoch = total_epoch
 
-    def on_epoch_begin(self, epoch, logs=None):
-        self.epoch = epoch
-
     def on_batch_end(self, batch, logs=None):
-        momentum = self.momentum + self.momentum * self.epoch / self.total_epoch
         for layer_r, layer_m in zip(self.model.encoder_regular.layers, 
                                     self.model.encoder_momentum.layers):
             r_weights = layer_r.get_weights()
             m_weights = layer_m.get_weights()
-            layer_m.set_weights([m * momentum + r * (1.-momentum) for r, m in zip(r_weights, m_weights)])
+            layer_m.set_weights([m * self.momentum + r * (1.-self.momentum) for r, m in zip(r_weights, m_weights)])
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.momentum = self.init_momentum * (1 + epoch / self.total_epoch)
+        self.logger.info(f'Epoch {epoch:04d} Momentum : {self.momentum:.4f}')
 
 
 def create_callbacks(args, logger, initial_epoch):
@@ -172,7 +173,7 @@ def create_callbacks(args, logger, initial_epoch):
                         f'history - {args.history} | '
                         f'tensorboard - {args.tensorboard}')
 
-    callbacks = [MomentumUpdate(args.momentum, args.epochs)]
+    callbacks = [MomentumUpdate(logger, args.momentum, args.epochs)]
     if args.checkpoint:
         for m in ['propagation', 'momentum']:
             os.makedirs(f'{args.result_path}/{args.task}/{args.stamp}/checkpoint/{m}', exist_ok=True)

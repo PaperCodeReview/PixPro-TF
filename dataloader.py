@@ -29,12 +29,11 @@ def set_dataset(task, data_path):
 
 
 class DataLoader:
-    def __init__(self, args, mode, datalist, batch_size, num_workers=1, shuffle=True):
+    def __init__(self, args, mode, datalist, batch_size, shuffle=True):
         self.args = args
         self.mode = mode
         self.datalist = datalist
         self.batch_size = batch_size
-        self.num_workers = num_workers
         self.shuffle = shuffle
 
         self.dataloader = self._dataloader()
@@ -76,6 +75,11 @@ class DataLoader:
         view2_x = get_coordmat(offset2[1], size2[1], 0)
         view2_y = get_coordmat(offset2[0], size2[0], 1)
 
+        if isflip1:
+            view1_x = tf.reverse(view1_x, axis=[1])
+        if isflip2:
+            view2_x = tf.reverse(view2_x, axis=[1])
+
         def get_distance_axis(source, target):
             d = tf.repeat(tf.reshape(source, (1, -1)), feature_size**2, axis=0)
             d -= tf.repeat(tf.reshape(target, (-1, 1)), feature_size**2, axis=1)
@@ -92,12 +96,8 @@ class DataLoader:
         view1_A_norm = view1_A / view1_diag
         view2_A_norm = view2_A / view2_diag
 
-        view1_A_norm_mask = tf.cast(view1_A_norm < self.args.threshold, tf.float32)
-        view2_A_norm_mask = tf.cast(view2_A_norm < self.args.threshold, tf.float32)
-        if isflip1:
-            view1_A_norm_mask = tf.reverse(view1_A_norm_mask, axis=[1])
-        if isflip2:
-            view2_A_norm_mask = tf.reverse(view2_A_norm_mask, axis=[1])
+        view1_A_norm_mask = tf.cast(view1_A_norm < self.args.threshold, tf.float32) # (49, 49)
+        view2_A_norm_mask = tf.cast(view2_A_norm < self.args.threshold, tf.float32) # (49, 49)
 
         return {'view1_mask': view1_A_norm_mask, 'view2_mask': view2_A_norm_mask}
         
@@ -120,7 +120,10 @@ class DataLoader:
 
             A_dict = self.get_distance_A(offset_list, size_list, isflip_list)
             img_dict.update(A_dict)
-            return img_dict
+            if self.mode == 'train':
+                return img_dict
+            else:
+                return img_dict, {'img': img, 'offset_list': offset_list, 'size_list': size_list, 'isflip_list': isflip_list}
         else:
             raise NotImplementedError('lincls is not implemented yet.')
             # return augset(img, shape)
