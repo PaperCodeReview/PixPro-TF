@@ -26,11 +26,12 @@ class Augment:
         x = self._standardize(x)
         return x, offset, size, isflip
 
-    # def _augment_lincls(self, x, shape, coord=[[[0., 0., 1., 1.]]]):
-    #     x = self._crop(x, shape, coord)
-    #     x = self._resize(x)
-    #     x = self._standardize(x)
-    #     return x
+    def _augment_lincls(self, x, shape, coord=[[[0., 0., 1., 1.]]]):
+        pass
+        # x = self._crop(x, shape, coord)
+        # x = self._resize(x)
+        # x = self._standardize(x)
+        # return x
 
     def _standardize(self, x):
         x = tf.cast(x, tf.float32)

@@ -81,72 +81,12 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
         epochs=args.epochs,
         callbacks=callbacks,
         initial_epoch=initial_epoch,
-        steps_per_epoch=10,)
+        steps_per_epoch=steps_per_epoch,)
 
 
 # TODO
-# def train_lincls(args, logger, initial_epoch, strategy, num_workers):
-#     assert args.snapshot is not None, 'pretrained weight is needed!'
-#     ##########################
-#     # Dataset
-#     ##########################
-#     trainset, valset = set_dataset(args.task, args.data_path)
-#     steps_per_epoch = args.steps or len(trainset) // args.batch_size
-#     validation_steps = len(valset) // args.batch_size
-
-#     logger.info("TOTAL STEPS OF DATASET FOR TRAINING")
-#     logger.info("========== TRAINSET ==========")
-#     logger.info(f"    --> {len(trainset)}")
-#     logger.info(f"    --> {steps_per_epoch}")
-
-#     logger.info("=========== VALSET ===========")
-#     logger.info(f"    --> {len(valset)}")
-#     logger.info(f"    --> {validation_steps}")
-
-
-#     ##########################
-#     # Model & Generator
-#     ##########################
-#     with strategy.scope():
-#         model = create_model(
-#             logger,
-#             backbone=args.backbone,
-#             img_size=args.img_size,
-#             weight_decay=args.weight_decay,
-#             lincls=True,
-#             classes=args.classes,
-#             snapshot=args.snapshot,
-#             freeze=args.freeze)
-
-#         lr_scheduler = OptionalLearningRateSchedule(args, steps_per_epoch, initial_epoch)
-#         model.compile(
-#             optimizer=tf.keras.optimizers.SGD(lr_scheduler, momentum=.9),
-#             metrics=[tf.keras.metrics.TopKCategoricalAccuracy(1, 'acc1', dtype=tf.float32),
-#                      tf.keras.metrics.TopKCategoricalAccuracy(5, 'acc5', dtype=tf.float32)],
-#             loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True, name='loss'))
-
-#     train_generator = DataLoader(args, 'train', trainset, args.batch_size, num_workers).dataloader
-#     val_generator = DataLoader(args, 'val', valset, args.batch_size, num_workers).dataloader
-
-
-#     ##########################
-#     # Train
-#     ##########################
-#     callbacks, initial_epoch = create_callbacks(args, logger, initial_epoch)
-#     if callbacks == -1:
-#         logger.info('Check your model.')
-#         return
-#     elif callbacks == -2:
-#         return
-
-#     model.fit(
-#         train_generator,
-#         validation_data=val_generator,
-#         epochs=args.epochs,
-#         callbacks=callbacks,
-#         initial_epoch=initial_epoch,
-#         steps_per_epoch=steps_per_epoch,
-#         validation_steps=validation_steps)
+def train_lincls():
+    pass
 
 
 def main():

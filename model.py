@@ -28,16 +28,17 @@ class ResBlock(Model):
         self.conv_shortcut = conv_shortcut
         self.bn = bn
         
-        self.conv1 = Conv2D(self.filters, 1, strides=self.stride, name=name+'_1_conv', **DEFAULT_ARGS)
-        self.bn1 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=name+'_1_bn')
-        self.conv2 = Conv2D(self.filters, self.kernel_size, padding='SAME', name=name+'_2_conv', **DEFAULT_ARGS)
-        self.bn2 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=name+'_2_bn')
-        self.conv3 = Conv2D(4 * self.filters, 1, name=name+'_3_conv', **DEFAULT_ARGS)
-        self.bn3 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=name+'_3_bn')
+    def build(self, input_shape):
+        self.conv1 = Conv2D(self.filters, 1, strides=self.stride, name=self.name+'_1_conv', **DEFAULT_ARGS)
+        self.bn1 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=self.name+'_1_bn')
+        self.conv2 = Conv2D(self.filters, self.kernel_size, padding='SAME', name=self.name+'_2_conv', **DEFAULT_ARGS)
+        self.bn2 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=self.name+'_2_bn')
+        self.conv3 = Conv2D(4 * self.filters, 1, name=self.name+'_3_conv', **DEFAULT_ARGS)
+        self.bn3 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=self.name+'_3_bn')
 
-        if conv_shortcut:
-            self.shortcut_conv = Conv2D(4 * self.filters, 1, strides=self.stride, name=name+'_0_conv', **DEFAULT_ARGS)
-            self.shortcut_bn = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=name+'_0_bn')
+        if self.conv_shortcut:
+            self.shortcut_conv = Conv2D(4 * self.filters, 1, strides=self.stride, name=self.name+'_0_conv', **DEFAULT_ARGS)
+            self.shortcut_bn = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name=self.name+'_0_bn')
 
     def call(self, inputs, training=None):
         if self.conv_shortcut:
@@ -72,9 +73,10 @@ class ResStack(Model):
         self.stride1 = stride1
         self.bn = bn
 
-        self.stacks = [ResBlock(filters, stride=self.stride1, bn=self.bn, name=name+'_block1')]
-        for i in range(2, blocks+1):
-            self.stacks.append(ResBlock(filters, conv_shortcut=False, bn=self.bn, name=name+'_block'+str(i)))
+    def build(self, input_shape):
+        self.stacks = [ResBlock(self.filters, stride=self.stride1, bn=self.bn, name=self.name+'_block1')]
+        for i in range(2, self.blocks+1):
+            self.stacks.append(ResBlock(self.filters, conv_shortcut=False, bn=self.bn, name=self.name+'_block'+str(i)))
         
     def call(self, inputs, training=None):
         x = inputs
@@ -97,6 +99,7 @@ class ResNet50(Model):
         super(ResNet50, self).__init__(**kwargs)
         self.bn = bn
 
+    def build(self, input_shape):
         self.conv1 = Conv2D(64, 7, strides=2, padding='SAME', name='conv1_conv', **DEFAULT_ARGS)
         self.bn1 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name='conv1_bn')
         self.pool1 = MaxPooling2D(3, strides=2, padding='SAME', name='poo1_pool')
@@ -127,12 +130,11 @@ class Projection(Model):
         self.channel = channel
         self.bn = bn
 
+    def build(self, input_shape):
         self.backbone = ResNet50(name='resnet50')
+        self.proj_conv1 = Conv2D(input_shape[-1], 1, name='proj_conv1', **DEFAULT_ARGS)
         self.proj_bn1 = BatchNorm_DICT[self.bn](axis=-1, epsilon=1.001e-5, name='proj_bn1')
         self.proj_conv2 = Conv2D(self.channel, 1, name='proj_conv2', **DEFAULT_ARGS)
-
-    def build(self, input_shape):
-        self.proj_conv1 = Conv2D(input_shape[-1], 1, name='proj_conv1', **DEFAULT_ARGS)
 
     def call(self, inputs, training=None):
         x = self.backbone(inputs, training)
@@ -155,9 +157,8 @@ class PPM(Model):
         self.gamma = gamma
         self.bn = bn
 
-        self.transforms = []
-
     def build(self, input_shape):
+        self.transforms = []
         if self.num_layers > 0:
             self.transforms.append(('conv', Conv2D(input_shape[-1], 1, name='ppm_conv1', **DEFAULT_ARGS)))
             if self.num_layers > 1:
@@ -288,11 +289,11 @@ class PixPro(Model):
             loss_cos = -cos_ij-cos_ji
             loss_decay = sum(self.losses)
             
-            loss = loss_cos / self._num_workers
-            loss += loss_decay / self._num_workers
+            loss = loss_cos + loss_decay
+            total_loss = loss / self._num_workers
 
         trainable_vars = self.trainable_variables
-        grads = tape.gradient(loss, trainable_vars)
+        grads = tape.gradient(total_loss, trainable_vars)
         self.optimizer.apply_gradients(zip(grads, trainable_vars))
-        results = {'loss': loss_cos, 'loss_ij': cos_ij, 'loss_ji': cos_ji, 'weight_decay': loss_decay}
+        results = {'loss_cos': loss_cos, 'loss_ij': cos_ij, 'loss_ji': cos_ji, 'loss': loss, 'weight_decay': loss_decay}
         return results

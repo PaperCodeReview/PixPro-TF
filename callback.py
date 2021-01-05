@@ -85,7 +85,7 @@ class MomentumUpdate(Callback):
             layer_m.set_weights([m * self.momentum + r * (1.-self.momentum) for r, m in zip(r_weights, m_weights)])
 
     def on_epoch_begin(self, epoch, logs=None):
-        self.momentum = self.init_momentum * (1 + epoch / self.total_epoch)
+        self.momentum = self.init_momentum + (1-self.init_momentum) * (float(epoch)/float(self.total_epoch))
         self.logger.info(f'Epoch {epoch+1:04d} Momentum : {self.momentum:.4f}')
 
 
