@@ -70,63 +70,6 @@ class OptionalLearningRateSchedule(LearningRateSchedule):
             return self.lr_scheduler(lr_epoch)
 
 
-class PixProModelCheckpoint(ModelCheckpoint):
-    def on_epoch_end(self, epoch, logs=None):
-        self.epochs_since_last_save += 1
-        if self.save_freq == 'epoch':
-            logs = logs or {}
-            if isinstance(self.save_freq, 
-                          int) or self.epochs_since_last_save >= self.period:
-                logs = tf_utils.to_numpy_or_python_type(logs)
-                self.epochs_since_last_save = 0
-                filepath = self._get_file_path(epoch, logs)
-                for m in self.model.layers:
-                    try:
-                        if 'propagation' in m.name:
-                            model_name = 'propagation'
-                        elif 'momentum' in m.name:
-                            model_name = 'momentum'
-                        else:
-                            raise ValueError()
-
-                        filepath_add = filepath.replace('checkpoint', f'checkpoint/{model_name}')
-                        if self.save_best_only:
-                            current = logs.get(self.monitor)
-                            if current is None:
-                                logging.warning('Can save best %s only with %s available, '
-                                                'skipping.' % (model_name, self.monitor))
-                            else:
-                                if self.monitor_op(current, self.best):
-                                    if self.verbose > 0:
-                                        print('\nEpoch %05d: %s improved from %0.5f to %0.5f,'
-                                              ' saving %s to %s' % (epoch + 1, self.monitor, self.best, 
-                                                                    current, model_name, filepath_add))
-                                    self.best = current
-                                    if self.save_weights_only:
-                                        m.save_weights(filepath_add, overwrite=True)
-                                    else:
-                                        m.save(filepath_add, overwrite=True)
-                                else:
-                                    if self.verbose > 0:
-                                        print('\nEpoch %05d: %s did not improve from %0.5f' %
-                                            (epoch + 1, self.monitor, self.best))
-                        else:
-                            if self.verbose > 0:
-                                print('\nEpoch %05d: saving %s to %s' % (epoch + 1, model_name, filepath_add))
-                            if self.save_weights_only:
-                                m.save_weights(filepath_add, overwrite=True)
-                            else:
-                                m.save(filepath_add, overwrite=True)
-
-                        self._maybe_remove_file()
-                    except IOError as e:
-                        # `e.errno` appears to be `None` so checking the content of `e.args[0]`.
-                        if 'is a directory' in six.ensure_str(e.args[0]).lower():
-                            raise IOError('Please specify a non-directory filepath for '
-                                        'ModelCheckpoint. Filepath used is an existing '
-                                        'directory: {}'.format(filepath))
-
-
 class MomentumUpdate(Callback):
     def __init__(self, logger, momentum, total_epoch):
         super(MomentumUpdate, self).__init__()
@@ -143,7 +86,7 @@ class MomentumUpdate(Callback):
 
     def on_epoch_begin(self, epoch, logs=None):
         self.momentum = self.init_momentum * (1 + epoch / self.total_epoch)
-        self.logger.info(f'Epoch {epoch:04d} Momentum : {self.momentum:.4f}')
+        self.logger.info(f'Epoch {epoch+1:04d} Momentum : {self.momentum:.4f}')
 
 
 def create_callbacks(args, logger, initial_epoch):
@@ -175,27 +118,15 @@ def create_callbacks(args, logger, initial_epoch):
 
     callbacks = [MomentumUpdate(logger, args.momentum, args.epochs)]
     if args.checkpoint:
-        for m in ['propagation', 'momentum']:
-            os.makedirs(f'{args.result_path}/{args.task}/{args.stamp}/checkpoint/{m}', exist_ok=True)
-        
-        if args.task in ['v1', 'v2']:
-            callbacks.append(PixProModelCheckpoint(
-                filepath=os.path.join(
-                    f'{args.result_path}/{args.task}/{args.stamp}/checkpoint',
-                    '{epoch:04d}_{loss:.4f}_{acc1:.4f}_{acc5:.4f}.h5'),
-                monitor='acc1',
-                mode='max',
-                verbose=1,
-                save_weights_only=True))
-        else:
-            callbacks.append(ModelCheckpoint(
-                filepath=os.path.join(
-                    f'{args.result_path}/{args.task}/{args.stamp}/checkpoint',
-                    '{epoch:04d}_{val_loss:.4f}_{val_acc1:.4f}_{val_acc5:.4f}.h5'),
-                monitor='val_acc1',
-                mode='max',
-                verbose=1,
-                save_weights_only=True))
+        os.makedirs(f'{args.result_path}/{args.task}/{args.stamp}/checkpoint', exist_ok=True)
+        callbacks.append(ModelCheckpoint(
+            filepath=os.path.join(
+                f'{args.result_path}/{args.task}/{args.stamp}/checkpoint',
+                '{epoch:04d}_{loss:.4f}_{loss_ij:.4f}_{loss_ji:.4f}'),
+            monitor='loss',
+            mode='min',
+            verbose=1,
+            save_weights_only=True))
 
     if args.history:
         os.makedirs(f'{args.result_path}/{args.task}/{args.stamp}/history', exist_ok=True)

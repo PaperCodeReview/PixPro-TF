@@ -36,21 +36,17 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
     with strategy.scope():
         model = PixPro(
             logger,
-            backbone=args.backbone,
-            img_size=args.img_size,
-            norm='bn' if num_workers == 1 else 'syncbn',
-            feature_size=7, # default of resnet50 
-            channel=256,    # default of resnet50
+            norm='bn' if num_workers == 1 else 'syncbn', 
+            channel=256, 
             gamma=args.gamma,
             num_layers=args.num_layers,
-            weight_decay=args.weight_decay,
             snapshot=args.snapshot)
         
         if args.summary:
-            tf.keras.utils.plot_model(model, './model.png', show_shapes=True)
-            tf.keras.utils.plot_model(model.encoder_regular, './encoder_regular.png', show_shapes=True)
-            tf.keras.utils.plot_model(model.encoder_propagation, './encoder_propagation.png', show_shapes=True)
-            tf.keras.utils.plot_model(model.encoder_momentum, './encoder_momentum.png', show_shapes=True)
+            # tf.keras.utils.plot_model(model, './model.png', show_shapes=True)
+            # tf.keras.utils.plot_model(model.encoder_regular, './encoder_regular.png', show_shapes=True)
+            # tf.keras.utils.plot_model(model.encoder_momentum, './encoder_momentum.png', show_shapes=True)
+            model.summary()
             return
 
         lr_scheduler = OptionalLearningRateSchedule(
@@ -67,7 +63,7 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
             optimizer=tf.keras.optimizers.SGD(lr_scheduler, momentum=.9),
             batch_size=args.batch_size,
             num_workers=num_workers,
-            run_eagerly=True)
+            run_eagerly=None)
 
 
     ##########################
@@ -85,7 +81,7 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
         epochs=args.epochs,
         callbacks=callbacks,
         initial_epoch=initial_epoch,
-        steps_per_epoch=steps_per_epoch,)
+        steps_per_epoch=10,)
 
 
 # TODO

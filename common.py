@@ -22,11 +22,9 @@ def get_arguments():
     parser.add_argument("--freeze",         action='store_true')
     parser.add_argument("--task",           type=str,       default='pretext',
                         choices=['pretext', 'lincls']) # TODO : detection, segmentation
-    parser.add_argument("--backbone",       type=str,       default='resnet50')
     parser.add_argument("--batch_size",     type=int,       default=256)
     parser.add_argument("--classes",        type=int,       default=1000)
     parser.add_argument("--img_size",       type=int,       default=224)
-    parser.add_argument("--weight_decay",   type=float,     default=1e-5)
     parser.add_argument("--steps",          type=int,       default=0)
     parser.add_argument("--epochs",         type=int,       default=100)
 
@@ -53,7 +51,7 @@ def get_arguments():
     parser.add_argument("--gpus",           type=str,       default='-1')
     parser.add_argument("--summary",        action='store_true')
     parser.add_argument("--resume",         action='store_true')
-    parser.add_argument("--ignore-search",  type=str,       default='')
+    parser.add_argument("--ignore_search",  type=str,       default='')
 
     return check_arguments(parser.parse_args())
 
@@ -96,31 +94,31 @@ def create_stamp():
     weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     temp = datetime.now()
     return "{:02d}{:02d}{:02d}_{}_{:02d}_{:02d}_{:02d}".format(
-        temp.year // 100,
+        temp.year % 100,
         temp.month,
         temp.day,
         weekday[temp.weekday()],
         temp.hour,
         temp.minute,
-        temp.second,
-    )
+        temp.second,)
 
 
 def search_same(args):
     search_ignore = ['checkpoint', 'history', 'tensorboard', 
-                     'tb_interval', 'summary',
+                     'tb_interval', 'summary', 'resume',
                      'src_path', 'data_path', 'result_path', 
                      'stamp', 'gpus', 'ignore_search']
     if len(args.ignore_search) > 0:
         search_ignore += args.ignore_search.split(',')
 
     initial_epoch = 0
-    stamps = os.listdir(f'{args.result_path}')
+    stamps = os.listdir(f'{args.result_path}/{args.task}')
     for stamp in stamps:
         try:
             desc = yaml.full_load(
-                open(f'{args.result_path}/{stamp}/model_desc.yml'))
+                open(f'{args.result_path}/{args.task}/{stamp}/model_desc.yml', 'r'))
         except:
+            print('load error!')
             continue
 
         flag = True
@@ -129,7 +127,7 @@ def search_same(args):
                 continue
                 
             if v != desc[k]:
-                # if stamp == '201019_Mon_10_53_03':
+                # if stamp == '210105_Tue_02_46_26':
                 #     print(stamp, k, desc[k], v)
                 flag = False
                 break
@@ -137,10 +135,7 @@ def search_same(args):
         if flag:
             args.stamp = stamp
             try:
-                df = pd.read_csv(
-                    os.path.join(
-                        args.result_path, 
-                        f'{args.task}/{args.stamp}/history/epoch.csv'))
+                df = pd.read_csv(f'{args.result_path}/{args.task}/{args.stamp}/history/epoch.csv')
             except:
                 continue
 
@@ -155,12 +150,12 @@ def search_same(args):
 
                 else:
                     ckpt_list = sorted(
-                        [d for d in os.listdir(
-                            f'{args.result_path}/{args.stamp}/checkpoint/query') if 'h5' in d],
-                        key=lambda x: int(x.split('_')[0]))
+                        [d.split('.index')[0] for d in os.listdir(
+                            f'{args.result_path}/{args.task}/{args.stamp}/checkpoint') if 'index' in d])
+                    print(ckpt_list)
                     
                     if len(ckpt_list) > 0:
-                        args.snapshot = f'{args.result_path}/{args.stamp}/checkpoint/query/{ckpt_list[-1]}'
+                        args.snapshot = f'{args.result_path}/{args.task}/{args.stamp}/checkpoint/{ckpt_list[-1]}'
                         initial_epoch = int(ckpt_list[-1].split('_')[0])
                     else:
                         print('{} Training already finished!!!'.format(stamp))

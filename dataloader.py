@@ -58,8 +58,8 @@ class DataLoader:
         size1, size2 = size_list
         isflip1, isflip2 = isflip_list
 
-        view1_diag = tf.sqrt(tf.cast(size1[0]**2 + size1[1]**2, tf.float32))
-        view2_diag = tf.sqrt(tf.cast(size2[0]**2 + size2[1]**2, tf.float32))
+        view1_diag = tf.sqrt(tf.cast(size1[0]**2 + size1[1]**2, tf.float32)) / tf.constant(feature_size, tf.float32)
+        view2_diag = tf.sqrt(tf.cast(size2[0]**2 + size2[1]**2, tf.float32)) / tf.constant(feature_size, tf.float32)
 
         def get_coordmat(offset, size, axis):
             x = tf.linspace(
