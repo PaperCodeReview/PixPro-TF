@@ -17,7 +17,27 @@ from tensorflow.keras.experimental import CosineDecay
 from common import create_stamp
 
 
+### ignore logger settings
+from tensorflow.python.keras.callbacks import CallbackList
+class CustomCallbackList(CallbackList):
+    """Ignore the warning message that callbacks take longer than train_step.
+    """
+    def _call_batch_hook(self, mode, hook, batch, logs=None):
+        if not self.callbacks:
+            return
+        hook_name = 'on_{mode}_batch_{hook}'.format(mode=mode, hook=hook)
+
+        logs = logs or {}
+        for callback in self.callbacks:
+            batch_hook = getattr(callback, hook_name)
+            batch_hook(batch, logs)
+
+tf.python.keras.callbacks.CallbackList = CustomCallbackList
+###
+
 class OptionalLearningRateSchedule(LearningRateSchedule):
+    """Set learning rate scheduler.
+    """
     def __init__(
         self, 
         lr,
@@ -51,7 +71,6 @@ class OptionalLearningRateSchedule(LearningRateSchedule):
         else:
             raise ValueError(self.lr_mode)
             
-
     def get_config(self):
         return {
             'steps_per_epoch': self.steps_per_epoch,
@@ -71,6 +90,8 @@ class OptionalLearningRateSchedule(LearningRateSchedule):
 
 
 class MomentumUpdate(Callback):
+    """Update momentum weights after each step.
+    """
     def __init__(self, logger, momentum, total_epoch):
         super(MomentumUpdate, self).__init__()
         self.logger = logger
@@ -87,6 +108,24 @@ class MomentumUpdate(Callback):
     def on_epoch_begin(self, epoch, logs=None):
         self.momentum = self.init_momentum + (1-self.init_momentum) * (float(epoch)/float(self.total_epoch))
         self.logger.info(f'Epoch {epoch+1:04d} Momentum : {self.momentum:.4f}')
+
+
+class CustomCSVLogger(CSVLogger):
+    """Save averaged logs during training.
+    """
+    def on_epoch_begin(self, epoch, logs=None):
+        self.batch_logs = {}
+
+    def on_batch_end(self, batch, logs=None):
+        for k, v in logs.items():
+            if k not in self.batch_logs:
+                self.batch_logs[k] = [v]
+            else:
+                self.batch_logs[k].append(v)
+
+    def on_epoch_end(self, epoch, logs=None):
+        final_logs = {k: np.mean(v) for k, v in self.batch_logs.items()}
+        super(CustomCSVLogger, self).on_epoch_end(epoch, final_logs)
 
 
 def create_callbacks(args, logger, initial_epoch):
@@ -130,7 +169,7 @@ def create_callbacks(args, logger, initial_epoch):
 
     if args.history:
         os.makedirs(f'{args.result_path}/{args.task}/{args.stamp}/history', exist_ok=True)
-        callbacks.append(CSVLogger(
+        callbacks.append(CustomCSVLogger(
             filename=f'{args.result_path}/{args.task}/{args.stamp}/history/epoch.csv',
             separator=',', append=True))
 

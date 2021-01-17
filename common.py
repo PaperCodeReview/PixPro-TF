@@ -152,7 +152,6 @@ def search_same(args):
                     ckpt_list = sorted(
                         [d.split('.index')[0] for d in os.listdir(
                             f'{args.result_path}/{args.task}/{args.stamp}/checkpoint') if 'index' in d])
-                    print(ckpt_list)
                     
                     if len(ckpt_list) > 0:
                         args.snapshot = f'{args.result_path}/{args.task}/{args.stamp}/checkpoint/{ckpt_list[-1]}'
