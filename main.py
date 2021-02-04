@@ -43,9 +43,6 @@ def train_pixpro(args, logger, initial_epoch, strategy, num_workers):
             snapshot=args.snapshot)
         
         if args.summary:
-            # tf.keras.utils.plot_model(model, './model.png', show_shapes=True)
-            # tf.keras.utils.plot_model(model.encoder_regular, './encoder_regular.png', show_shapes=True)
-            # tf.keras.utils.plot_model(model.encoder_momentum, './encoder_momentum.png', show_shapes=True)
             model.summary()
             return
 

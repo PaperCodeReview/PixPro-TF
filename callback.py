@@ -98,12 +98,22 @@ class MomentumUpdate(Callback):
         self.init_momentum = momentum
         self.total_epoch = total_epoch
 
+    def _recursive_momentum(self, regular, momentum):
+        for rl, ml in zip(regular.layers, momentum.layers):
+            if hasattr(rl, 'layers'):
+                self._recursive_momentum(rl, ml)
+            else:
+                ml.set_weights([0.9 * k + 0.1 * q for q, k in zip(rl.get_weights(), ml.get_weights())])
+
     def on_batch_end(self, batch, logs=None):
-        for layer_r, layer_m in zip(self.model.encoder_regular.layers, 
-                                    self.model.encoder_momentum.layers):
+        # self._recursive_momentum(self.model.encoder_regular, self.model.encoder_momentum)
+
+
+        for layer_r, layer_m in zip(self.model.encoder_regular.layers, self.model.encoder_momentum.layers):
             r_weights = layer_r.get_weights()
-            m_weights = layer_m.get_weights()
-            layer_m.set_weights([m * self.momentum + r * (1.-self.momentum) for r, m in zip(r_weights, m_weights)])
+            if len(r_weights) > 0:
+                m_weights = layer_m.get_weights()
+                layer_m.set_weights([self.momentum * k + (1.-self.momentum) * q for q, k in zip(r_weights, m_weights)])
 
     def on_epoch_begin(self, epoch, logs=None):
         self.momentum = self.init_momentum + (1-self.init_momentum) * (float(epoch)/float(self.total_epoch))
