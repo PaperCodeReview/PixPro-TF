@@ -1,6 +1,6 @@
 # PixPro-TF
 
-This is an unofficial implementation of [Propagate Yourself: Exploring Pixel-Level Consistency for Unsupervised Visual Representation Learning, Arxiv 2020](https://arxiv.org/abs/2011.10043).  
+This is an unofficial implementation of [Propagate Yourself: Exploring Pixel-Level Consistency for Unsupervised Visual Representation Learning, CVPR 2021](https://arxiv.org/abs/2011.10043).  
   
 ## Requirements
 (**TODO** : requirements.txt and Dockerfile for the image of fixed environment.)
